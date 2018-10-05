@@ -20,6 +20,9 @@ type ContainerProxy struct {
 
 
 
+const networkName = "skyeng"//"my_network"
+const postfixDomain = ".skyeng.loc"
+
 func (this *ContainerProxy) createClient () {
 	cli, err := client.NewClientWithOpts(client.WithVersion("1.38"))
 
@@ -44,8 +47,8 @@ func (this *ContainerProxy) loadContainers () {
 		// get aliases
 		for _, container := range this.containers {
 			con, _ := this.cli.ContainerInspect(context.Background(), container.ID)
-			container.NetworkSettings.Networks["my_network"].Aliases =
-			con.NetworkSettings.Networks["my_network"].Aliases
+			container.NetworkSettings.Networks[networkName].Aliases =
+			con.NetworkSettings.Networks[networkName].Aliases
 		}
 	}
 }
@@ -91,12 +94,14 @@ func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
 			fmt.Printf("IPAddress: %v", network.IPAddress)
 			fmt.Printf("Aliases: %v", network.Aliases)*/
 			for _, alias := range network.Aliases {
-				fmt.Printf("Alias: %s \n", alias)
-				if wrap.HostName == alias {
+				//fmt.Printf("Alias: %s \n", alias)
+				//fmt.Printf("wrap.HostName: %s \n", wrap.HostName)
+
+				if strings.Index(wrap.HostName, alias) == 0 { //with any port
 					hNetwork, ok := container.NetworkSettings.Networks[container.HostConfig.NetworkMode]
 					if ok { // sometime while "network:disconnect" event fire
 						if hNetwork.IPAddress != "" {
-							addr := fmt.Sprintf("%s:80", hNetwork.IPAddress)
+							addr := fmt.Sprintf("%s:4210", hNetwork.IPAddress)
 							fmt.Printf("Addr: %s \n", addr)
 							dp := &tcpproxy.DialProxy{Addr: addr}
 							dp.HandleConn(conn)
@@ -122,12 +127,9 @@ func withPostfixDomain(domain string) tcpproxy.Matcher {
 
 func (this *ContainerProxy) start () {
 	var p tcpproxy.Proxy
-	/*for _, container := range this.containers {
-		container
-	}*/
-	//p.AddRoute(":80", &ContainerByAliasesTarget{})
+
 	target := &ContainerByAliasesTarget{containerProxy: this}
-	p.AddHTTPHostMatchRoute(":80", withPostfixDomain(".skyeng.loc"), target)
+	p.AddHTTPHostMatchRoute(":4299", withPostfixDomain(postfixDomain), target)
 	log.Fatal(p.Run())
 }
 
