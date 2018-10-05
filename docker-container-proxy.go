@@ -9,19 +9,16 @@ import (
 	"github.com/google/tcpproxy"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
 
 type ContainerProxy struct {
+	networkName string
 	containers []types.Container
 	cli *client.Client
 }
-
-
-
-const networkName = "skyeng"//"my_network"
-const postfixDomain = ".skyeng.loc"
 
 func (this *ContainerProxy) createClient () {
 	cli, err := client.NewClientWithOpts(client.WithVersion("1.38"))
@@ -35,7 +32,7 @@ func (this *ContainerProxy) createClient () {
 }
 
 func (this *ContainerProxy) loadContainers () {
-	fmt.Println("loadContainers")
+	fmt.Println("Updating containers info")
 	containers, err := this.cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		fmt.Printf(err.Error());
@@ -44,11 +41,12 @@ func (this *ContainerProxy) loadContainers () {
 
 		this.containers = containers
 
-		// get aliases
+		// get aliases and fill
 		for _, container := range this.containers {
-			con, _ := this.cli.ContainerInspect(context.Background(), container.ID)
-			container.NetworkSettings.Networks[networkName].Aliases =
-			con.NetworkSettings.Networks[networkName].Aliases
+			if network, ok := container.NetworkSettings.Networks[this.networkName]; ok {
+				con, _ := this.cli.ContainerInspect(context.Background(), container.ID)
+				network.Aliases = con.NetworkSettings.Networks[this.networkName].Aliases
+			}
 		}
 	}
 }
@@ -77,6 +75,7 @@ func (this ContainerProxy) listen () {
 
 type ContainerByAliasesTarget struct {
 	containerProxy *ContainerProxy
+	targetPort string
 }
 
 func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
@@ -90,19 +89,13 @@ func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
 
 	for _, container := range ch.containerProxy.containers {
 		for _, network := range container.NetworkSettings.Networks {
-			/*fmt.Printf("Network: %v", n)
-			fmt.Printf("IPAddress: %v", network.IPAddress)
-			fmt.Printf("Aliases: %v", network.Aliases)*/
 			for _, alias := range network.Aliases {
-				//fmt.Printf("Alias: %s \n", alias)
-				//fmt.Printf("wrap.HostName: %s \n", wrap.HostName)
-
 				if strings.Index(wrap.HostName, alias) == 0 { //with any port
 					hNetwork, ok := container.NetworkSettings.Networks[container.HostConfig.NetworkMode]
 					if ok { // sometime while "network:disconnect" event fire
 						if hNetwork.IPAddress != "" {
-							addr := fmt.Sprintf("%s:4210", hNetwork.IPAddress)
-							fmt.Printf("Addr: %s \n", addr)
+							addr := fmt.Sprintf("%s:%s", hNetwork.IPAddress, ch.targetPort)
+							fmt.Printf("Forwarding %s to %s\n", wrap.HostName, addr)
 							dp := &tcpproxy.DialProxy{Addr: addr}
 							dp.HandleConn(conn)
 							return
@@ -120,26 +113,38 @@ func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
 
 func withPostfixDomain(domain string) tcpproxy.Matcher {
 	return func(_ context.Context, got string) bool {
-		fmt.Printf("Get: %s \n", got)
 		return strings.Index(got, domain) != -1
 	}
 }
 
-func (this *ContainerProxy) start () {
+func (this *ContainerProxy) start (port string, targetPort string, postfixDomain string) {
 	var p tcpproxy.Proxy
 
-	target := &ContainerByAliasesTarget{containerProxy: this}
-	p.AddHTTPHostMatchRoute(":4299", withPostfixDomain(postfixDomain), target)
+	dContainersTarget := &ContainerByAliasesTarget{containerProxy: this, targetPort: targetPort}
+	p.AddHTTPHostMatchRoute(fmt.Sprintf(":%s", port), withPostfixDomain(postfixDomain), dContainersTarget)
 	log.Fatal(p.Run())
 }
 
 func main() {
-	containerProxy := ContainerProxy{}
+	if len(os.Args) < 5 {
+		fmt.Println("Pass 4 arguments in this order: port targetPort dockerNetowrkName postfixDomain.")
+		return;
+	}
+	port := os.Args[1]
+	targetPort := os.Args[2]
+	networkName := os.Args[3]
+	postfixDomain := os.Args[4]
+	fmt.Println(fmt.Sprintf(":%s", port))
+
+	containerProxy := ContainerProxy{
+		networkName: networkName,
+	}
 
 	containerProxy.createClient()
 	containerProxy.loadContainers()
 	go func() {
 		containerProxy.listen()
 	}()
-	containerProxy.start()
+
+	containerProxy.start(port, targetPort, postfixDomain)
 }
