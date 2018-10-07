@@ -6,14 +6,14 @@ Useful in development environments to reach container services which working on 
 
 How use
 ------
-Docker compose example
+Docker compose example with two services working on same 80 port.
 
     version: "3.7"
 
     services:
-      ngserve:
+      frontend:
         image: node:8.12-alpine
-        entrypoint: /bin/sh -c "([ -d node_modules ] || npm install || (echo sleep 60 && sleep 60)) && ./node_modules/@angular/cli/bin/ng serve --host 0.0.0.0 --port 80 --disable-host-check --proxy-config proxy.conf.json"
+        entrypoint: /bin/sh -c "npm install && ./node_modules/@angular/cli/bin/ng serve --port 80 --host my-project.loc"
         volumes:
           - .:/opt/app
         working_dir: /opt/app
@@ -21,23 +21,34 @@ Docker compose example
           my_project_network:
             aliases:
             - my-project.loc
-      nginx:
+      api:
         image: iginx:latest
         networks:
           my_project_network:
             aliases:
              - api.my-project.loc
+      payment-api:
+        image: iginx:latest
+        networks:
+          my_project_network:
+            aliases:
+              - payment.my-project.loc
     networks:
-      my_project_network:
-        name: my_project_network
+      my_project_network: ~
+
+Probably in real project some services will located in separate docker-compose.yml file, but
+there is not problem if they have same network or [dockerNetworkPattern] argument covers necessary networks
 
 Run
 
-    docker-container-proxy 80 80 my_project_network my-project.loc
+    docker-container-proxy .+\.my-project\.loc 80 my_project_network 80
 
-Add to /etc/hosts
+Don't forgot edit your ```/etc/hosts``` accordingly
 
     my-project.loc      127.0.0.1
     api.my-project.loc  127.0.0.1
    
-You can type in browser `my-project.loc`. 
+You can type in browser `my-project.loc` and `api.my-project.loc`. 
+
+More advanced way to reach to container without expose ports is locally setup dns server
+[coredns-dockerdiscovery](https://github.com/kevinjqiu/coredns-dockerdiscovery)
