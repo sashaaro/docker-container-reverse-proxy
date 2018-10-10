@@ -1,7 +1,7 @@
 Docker container proxy
 ===================================
 
-Http proxy for forwarding to local running containers by aliases.
+Http proxy for forwarding to local running containers by [network aliases](https://docs.docker.com/v17.09/engine/userguide/networking/configure-dns).
 Useful in development environments to reach container services which working on same port.
 
 Compile `go build .`
