@@ -4,9 +4,14 @@ Docker container proxy
 Http proxy for forwarding to local running containers by aliases.
 Useful in development environments to reach container services which working on same port.
 
+Compile `go build .`
+
 How use
 ------
-Docker compose example with two services working on same 80 port.
+
+    docker-container-proxy [httpHostPattern] [listenPort] [dockerNetworkPattern] [targetContainerPort]
+
+```docker-compose.yml``` example with services are working on same 80 port.
 
     version: "3.7"
 
@@ -39,16 +44,17 @@ Docker compose example with two services working on same 80 port.
 Probably in real project some services will located in separate docker-compose.yml file, but
 there is not problem if they have same network or [dockerNetworkPattern] argument covers necessary networks
 
-Run
+Example
 
     docker-container-proxy .+\.my-project\.loc 80 my_project_network 80
 
 Don't forgot edit your ```/etc/hosts``` accordingly
 
-    my-project.loc      127.0.0.1
-    api.my-project.loc  127.0.0.1
+    my-project.loc          127.0.0.1
+    api.my-project.loc      127.0.0.1
+    payment.my-project.loc  127.0.0.1
    
-You can type in browser `my-project.loc` and `api.my-project.loc`. 
+You can type in browser `my-project.loc` and `api.my-project.loc`.
 
 More advanced way to reach to container without expose ports is locally setup dns server
 [coredns-dockerdiscovery](https://github.com/kevinjqiu/coredns-dockerdiscovery)
