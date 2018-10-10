@@ -27,13 +27,13 @@ How use
             aliases:
             - my-project.loc
       api:
-        image: iginx:latest
+        image: nginx:latest
         networks:
           my_project_network:
             aliases:
              - api.my-project.loc
       payment-api:
-        image: iginx:latest
+        image: nginx:latest
         networks:
           my_project_network:
             aliases:
