@@ -19,6 +19,7 @@ type ContainerProxy struct {
 	networkPattern string
 	containers []*types.Container
 	networks []*types.NetworkResource
+	sshTarget *SelectedContainerSshTarget
 	cli *client.Client
 }
 
@@ -110,9 +111,11 @@ type ContainerByAliasesTarget struct {
 func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
 	wrap, ok := conn.(*tcpproxy.Conn);
 	if !ok {
+		conn.Close()
 		return
 	}
 	if wrap.HostName == "" {
+		conn.Close()
 		return;
 	}
 
@@ -120,24 +123,31 @@ func (ch *ContainerByAliasesTarget) HandleConn(conn net.Conn)  {
 		for _, network := range container.NetworkSettings.Networks {
 			for _, alias := range network.Aliases {
 				if strings.Index(wrap.HostName, alias) == 0 { //with any port
-					hNetwork, ok := container.NetworkSettings.Networks[container.HostConfig.NetworkMode]
-					if ok { // sometime while "network:disconnect" event fire
-						if hNetwork.IPAddress != "" {
-							addr := fmt.Sprintf("%s:%s", hNetwork.IPAddress, ch.targetPort)
-							fmt.Printf("Forwarding %s to %s\n", wrap.HostName, addr)
-							dp := &tcpproxy.DialProxy{Addr: addr}
-							dp.HandleConn(conn)
-							return
-						} else {
-							// log
-						}
-					} else {
-						// return nil, fmt.Errorf("unable to find network settings for the network %s", networkMode)
+					hostAddress := getHostAddress(container)
+					if hostAddress == "" {
+						// log wtf
+						return
 					}
+					addr := fmt.Sprintf("%s:%s", hostAddress, ch.targetPort)
+					fmt.Printf("Forwarding %s to %s\n", wrap.HostName, addr)
+					dp := &tcpproxy.DialProxy{Addr: addr}
+					dp.HandleConn(conn)
+					return
 				}
 			}
 		}
 	}
+
+	conn.Close()
+}
+
+func getHostAddress(container *types.Container) string {
+	hNetwork, ok := container.NetworkSettings.Networks[container.HostConfig.NetworkMode]
+	if !ok {
+		// return nil, fmt.Errorf("unable to find network settings for the network %s", networkMode)
+		return "";
+	}
+	return hNetwork.IPAddress;
 }
 
 func withHttpHostPattern(httpHostPattern string) tcpproxy.Matcher {
@@ -151,12 +161,19 @@ func withHttpHostPattern(httpHostPattern string) tcpproxy.Matcher {
 }
 
 type SelectedContainerSshTarget struct {
-	ip string
+	container *types.Container
 }
 
 func (tagret *SelectedContainerSshTarget) HandleConn(conn net.Conn)  {
-	dp := &tcpproxy.DialProxy{Addr: tagret.ip}
-	dp.HandleConn(conn)
+	if tagret.container != nil {
+		if address := getHostAddress(tagret.container); address != "" {
+			address = fmt.Sprintf("%s:%s", address, "22") // TODO port resolve dynamically
+			dp := &tcpproxy.DialProxy{Addr: address}
+			dp.HandleConn(conn)
+			return;
+		}
+	}
+	conn.Close()
 }
 
 func (this *ContainerProxy) start (port string, targetPort string, httpHostPattern string) {
@@ -164,7 +181,7 @@ func (this *ContainerProxy) start (port string, targetPort string, httpHostPatte
 
 	dContainersTarget := &ContainerByAliasesTarget{containerProxy: this, targetPort: targetPort}
 	p.AddHTTPHostMatchRoute(fmt.Sprintf(":%s", port), withHttpHostPattern(httpHostPattern), dContainersTarget)
-	p.AddRoute(":22", &SelectedContainerSshTarget{ip: "172.17.0.2:22"})
+	p.AddRoute(":22", this.sshTarget)
 	fmt.Println(fmt.Sprintf("Start to listen %s port", port))
 	log.Fatal(p.Run())
 }
@@ -198,6 +215,7 @@ func main() {
 	containerProxy := ContainerProxy{
 		networkPattern: networkPattern,
 		containers: []*types.Container{},
+		sshTarget: &SelectedContainerSshTarget{},
 	}
 
 	containerProxy.createClient()

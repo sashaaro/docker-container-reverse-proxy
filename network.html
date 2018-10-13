@@ -16,15 +16,33 @@
     <thead>
     <tr>
         <th>Network</th>
-        <td>{{ .network.Name }}</td>
+        <th>{{ .network.Name }}</th>
+        <th>Proxy forwarding</th>
     </tr>
     </thead>
     <tbody>
+{{range $project, $containers := .containerProjects }}
     <tr>
-        <td>Network</td>
-        <td>{{ .network.Name }}</td>
+        <td style="background-color: beige" colspan="3">
+            {{ $project }}
+        </td>
     </tr>
-    </tbody>
+    {{ range $i, $container := $containers }}
+        <tr>
+            <td>
+                {{range $container.Names }}{{ . }}{{end}}
+            </td>
+            <td>{{ $container.Status }}</td>
+            <td>
+                <a class="tiny ui button{{/* if and (ne .sshTargetContainer nil) (eq .sshTargetContainer.ID $container.ID) }} disabled{{ end */}}" href="/target/ssh?container={{ $container.ID }}">
+                    Ssh 22
+                </a>
+            </td>
+        </tr>
+    {{ end }}
+{{ end }}
+
+</tbody>
 </table>
 
 </body>
