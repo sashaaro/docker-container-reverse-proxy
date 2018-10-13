@@ -18,6 +18,7 @@ import (
 type ContainerProxy struct {
 	networkPattern string
 	containers []*types.Container
+	networks []*types.NetworkResource
 	cli *client.Client
 }
 
@@ -35,6 +36,7 @@ func (this *ContainerProxy) createClient () {
 func (this *ContainerProxy) loadContainers () {
 	fmt.Println("Updating containers info")
 	this.containers = []*types.Container{}
+	this.networks = []*types.NetworkResource{}
 
 	containers, err := this.cli.ContainerList(context.Background(), types.ContainerListOptions{})
 
@@ -50,7 +52,6 @@ func (this *ContainerProxy) loadContainers () {
 		return;
 	}
 
-	networkNames := []string{};
 	for _, network := range networks {
 		matched, err := regexp.MatchString(this.networkPattern, network.Name)
 		if err != nil {
@@ -59,19 +60,20 @@ func (this *ContainerProxy) loadContainers () {
 		}
 
 		if (matched) {
-			networkNames = append(networkNames, network.Name);
+			networkRef := network
+			this.networks = append(this.networks, &networkRef);
 		}
 	}
 
-	// fmt.Println("aliases %s", len(containers[0].NetworkSettings.Networks["my_network"].Aliases))
 	// get aliases and fill
 	for _, container := range containers {
-		for _, networkName := range networkNames {
-			if network, ok := container.NetworkSettings.Networks[networkName]; ok {
+		for _, filteredNetwork := range this.networks {
+			if containerNetwork, ok := container.NetworkSettings.Networks[filteredNetwork.Name]; ok {
 				con, _ := this.cli.ContainerInspect(context.Background(), container.ID)
-				network.Aliases = con.NetworkSettings.Networks[networkName].Aliases
+				containerNetwork.Aliases = con.NetworkSettings.Networks[filteredNetwork.Name].Aliases
 
-				this.containers = append(this.containers, &container);
+				containerRef := container
+				this.containers = append(this.containers, &containerRef);
 				continue;
 			}
 		}
@@ -148,14 +150,35 @@ func withHttpHostPattern(httpHostPattern string) tcpproxy.Matcher {
 	}
 }
 
+type SelectedContainerSshTarget struct {
+	ip string
+}
+
+func (tagret *SelectedContainerSshTarget) HandleConn(conn net.Conn)  {
+	dp := &tcpproxy.DialProxy{Addr: tagret.ip}
+	dp.HandleConn(conn)
+}
+
 func (this *ContainerProxy) start (port string, targetPort string, httpHostPattern string) {
 	var p tcpproxy.Proxy
 
 	dContainersTarget := &ContainerByAliasesTarget{containerProxy: this, targetPort: targetPort}
 	p.AddHTTPHostMatchRoute(fmt.Sprintf(":%s", port), withHttpHostPattern(httpHostPattern), dContainersTarget)
+	p.AddRoute(":22", &SelectedContainerSshTarget{ip: "172.17.0.2:22"})
 	fmt.Println(fmt.Sprintf("Start to listen %s port", port))
 	log.Fatal(p.Run())
 }
+
+
+
+func Map(vs []*types.NetworkResource, f func(*types.NetworkResource) string) []string {
+	vsm := make([]string, len(vs))
+	for i, v := range vs {
+		vsm[i] = f(v)
+	}
+	return vsm
+}
+
 
 func main() {
 	if len(os.Args) < 5 {
@@ -170,6 +193,8 @@ func main() {
 	networkPattern := os.Args[3]
 	targetPort := os.Args[4]
 
+	params := os.Args[4:]
+
 	containerProxy := ContainerProxy{
 		networkPattern: networkPattern,
 		containers: []*types.Container{},
@@ -181,5 +206,21 @@ func main() {
 		containerProxy.listen()
 	}()
 
+	if contains(params, "--dashboard") {
+		go func() {
+			dashboard := &Dashboard{}
+			dashboard.containerProxy = &containerProxy
+			dashboard.start()
+		}()
+	}
 	containerProxy.start(port, targetPort, httpHostPattern)
+}
+
+func contains(intSlice []string, searchInt string) bool {
+	for _, value := range intSlice {
+		if value == searchInt {
+			return true
+		}
+	}
+	return false
 }
