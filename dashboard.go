@@ -63,7 +63,7 @@ func (ds *Dashboard) handleNetwork(w http.ResponseWriter, r *http.Request) {
 	data := make(map[string]interface{})
 	data["network"] = network
 	data["containerProjects"] = containers
-	data["sshTargetContainer"] = ds.containerProxy.sshTarget.container
+	data["selectedTargets"] = ds.containerProxy.selectedTargets
 	t, _ := template.ParseFiles("network.html");
 	t.Execute(w, data);
 }
@@ -75,6 +75,7 @@ func (ds *Dashboard) handlePostSshTarget(w http.ResponseWriter, r *http.Request)
 		//return
 	}
 	containerID := r.URL.Query().Get("container")
+	port := r.URL.Query().Get("port")
 
 	var container *types.Container;
 	for _, cont := range ds.containerProxy.containers {
@@ -90,9 +91,17 @@ func (ds *Dashboard) handlePostSshTarget(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ds.containerProxy.sshTarget.container = container;
+	for _, selectedTarget := range ds.containerProxy.selectedTargets {
+		if selectedTarget.port == port {
+			selectedTarget.container = container;
 
-	w.WriteHeader(200);
+			w.WriteHeader(200);
+			return;
+		}
+	}
+
+	w.WriteHeader(404);
+	w.Write([]byte("404"));
 }
 
 

@@ -19,7 +19,7 @@ type ContainerProxy struct {
 	networkPattern string
 	containers []*types.Container
 	networks []*types.NetworkResource
-	sshTarget *SelectedContainerSshTarget
+	selectedTargets []*SelectedContainerTarget
 	cli *client.Client
 }
 
@@ -160,14 +160,15 @@ func withHttpHostPattern(httpHostPattern string) tcpproxy.Matcher {
 	}
 }
 
-type SelectedContainerSshTarget struct {
+type SelectedContainerTarget struct {
+	port string
 	container *types.Container
 }
 
-func (tagret *SelectedContainerSshTarget) HandleConn(conn net.Conn)  {
+func (tagret *SelectedContainerTarget) HandleConn(conn net.Conn)  {
 	if tagret.container != nil {
 		if address := getHostAddress(tagret.container); address != "" {
-			address = fmt.Sprintf("%s:%s", address, "22") // TODO port resolve dynamically
+			address = fmt.Sprintf("%s:%s", address, tagret.port)
 			dp := &tcpproxy.DialProxy{Addr: address}
 			dp.HandleConn(conn)
 			return;
@@ -181,7 +182,9 @@ func (this *ContainerProxy) start (port string, targetPort string, httpHostPatte
 
 	dContainersTarget := &ContainerByAliasesTarget{containerProxy: this, targetPort: targetPort}
 	p.AddHTTPHostMatchRoute(fmt.Sprintf(":%s", port), withHttpHostPattern(httpHostPattern), dContainersTarget)
-	p.AddRoute(":22", this.sshTarget)
+	for _, selectedTarget := range this.selectedTargets {
+		p.AddRoute(fmt.Sprintf(":%s", selectedTarget.port), selectedTarget)
+	}
 	fmt.Println(fmt.Sprintf("Start to listen %s port", port))
 	log.Fatal(p.Run())
 }
@@ -215,8 +218,10 @@ func main() {
 	containerProxy := ContainerProxy{
 		networkPattern: networkPattern,
 		containers: []*types.Container{},
-		sshTarget: &SelectedContainerSshTarget{},
+		selectedTargets: []*SelectedContainerTarget{},
 	}
+
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{port: "22"})
 
 	containerProxy.createClient()
 	containerProxy.loadContainers()

@@ -44,13 +44,15 @@
             </td>
             <td>{{ $container.Status }}</td>
             <td>
-                <a class="tiny ui button
+                {{range .selectedTargets }}
+                    <a class="tiny ui button
 {{/* if and (ne .sshTargetContainer nil) (eq .sshTargetContainer.ID $container.ID) }} disabled
 {{ end */}}
 "
-                   href="/target/ssh?container={{ $container.ID }}">
-                    Ssh 22
-                </a>
+                       href="/target/ssh?container={{ $container.ID }}&port{{ .port }}">
+                        Ssh {{ .port }}
+                    </a>
+                {{end}}
             </td>
         </tr>
     {{ end }}
