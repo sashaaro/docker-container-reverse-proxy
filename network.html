@@ -46,8 +46,8 @@
             <td>
                 {{range .selectedTargets }}
                     <a class="tiny ui button
-{{/* if and (ne .sshTargetContainer nil) (eq .sshTargetContainer.ID $container.ID) }} disabled
-{{ end */}}
+{{ if eq .container.ID $container.ID }} disabled
+{{ end }}
 "
                        href="/target/ssh?container={{ $container.ID }}&port{{ .port }}">
                         Ssh {{ .port }}
