@@ -64,11 +64,12 @@ func (ds *Dashboard) handleNetwork(w http.ResponseWriter, r *http.Request) {
 	data["network"] = network
 	data["containerProjects"] = containers
 	data["selectedTargets"] = ds.containerProxy.selectedTargets
+
 	t, _ := template.ParseFiles("network.html");
 	t.Execute(w, data);
 }
 
-func (ds *Dashboard) handlePostSshTarget(w http.ResponseWriter, r *http.Request) {
+func (ds *Dashboard) handlePostTarget(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		//w.WriteHeader(404);
 		//w.Write([]byte("404"))
@@ -107,7 +108,7 @@ func (ds *Dashboard) handlePostSshTarget(w http.ResponseWriter, r *http.Request)
 
 func (ds *Dashboard) start() {
 	http.HandleFunc("/network", ds.handleNetwork)
-	http.HandleFunc("/target/ssh", ds.handlePostSshTarget)
+	http.HandleFunc("/target", ds.handlePostTarget)
 	http.HandleFunc("/", ds.handlerMain)
 
 	fmt.Println("Start dashboard on 8080 port")

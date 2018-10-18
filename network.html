@@ -31,6 +31,7 @@
     </tr>
     </thead>
     <tbody>
+
 {{range $project, $containers := .containerProjects }}
     <tr>
         <td style="background-color: beige" colspan="3">
@@ -44,19 +45,22 @@
             </td>
             <td>{{ $container.Status }}</td>
             <td>
-                {{range .selectedTargets }}
-                    <a class="tiny ui button
-{{ if eq .container.ID $container.ID }} disabled
-{{ end }}
-"
-                       href="/target/ssh?container={{ $container.ID }}&port{{ .port }}">
-                        Ssh {{ .port }}
-                    </a>
+                {{range $selectedTarget := .selectedTargets }}
+                {{ $selectedTarget.port }}
                 {{end}}
+
             </td>
         </tr>
     {{ end }}
 {{ end }}
+
+{{/*                    <a class="tiny ui button
+ if eq $selectedTarget.container.ID $container.ID }} disabled
+{{ end
+"
+                       href="/target?container={{ $container.ID }}&port{{ $selectedTarget.port }}">
+                        {{ $selectedTarget.port }}
+                    </a>*/}}
 
 </tbody>
 </table>
