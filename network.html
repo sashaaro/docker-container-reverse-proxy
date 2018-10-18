@@ -12,11 +12,21 @@
         integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
         crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.0/dist/semantic.min.js"></script>
+
+
+<div style="display: flex; justify-content: space-between">
+    <div>
+        <h2>Network {{ .network.Name }}</h2>
+    </div>
+    <div>
+        <a href="/" class="ui primary button visible">Back</a>
+    </div>
+</div>
 <table class="ui attached table">
     <thead>
     <tr>
-        <th>Network</th>
-        <th>{{ .network.Name }}</th>
+        <th>Container name</th>
+        <th>Status</th>
         <th>Proxy forwarding</th>
     </tr>
     </thead>
@@ -34,7 +44,11 @@
             </td>
             <td>{{ $container.Status }}</td>
             <td>
-                <a class="tiny ui button{{/* if and (ne .sshTargetContainer nil) (eq .sshTargetContainer.ID $container.ID) }} disabled{{ end */}}" href="/target/ssh?container={{ $container.ID }}">
+                <a class="tiny ui button
+{{/* if and (ne .sshTargetContainer nil) (eq .sshTargetContainer.ID $container.ID) }} disabled
+{{ end */}}
+"
+                   href="/target/ssh?container={{ $container.ID }}">
                     Ssh 22
                 </a>
             </td>

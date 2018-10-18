@@ -49,11 +49,15 @@ func (ds *Dashboard) handleNetwork(w http.ResponseWriter, r *http.Request) {
 
 	for _, container := range ds.containerProxy.containers {
 		projectName, ok := container.Labels["project.name"]
-		//if _, ok := network.Containers[container.ID]; ok {
-		if ok {
-			containers[projectName] = append(containers[projectName], container)
+		if !ok {
+			continue;
 		}
-		//}
+		for _, networkSettings := range container.NetworkSettings.Networks {
+			if network.ID == networkSettings.NetworkID {
+				containers[projectName] = append(containers[projectName], container)
+				break;
+			}
+		}
 	}
 
 	data := make(map[string]interface{})
