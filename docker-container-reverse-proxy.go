@@ -203,9 +203,9 @@ func Map(vs []*types.NetworkResource, f func(*types.NetworkResource) string) []s
 func main() {
 	if len(os.Args) < 5 {
 		fmt.Println(
-		"Usage: docker-container-proxy [httpHostPattern] [listenPort] [dockerNetworkPattern] [targetContainerPort]")
+		"Usage: docker-container-reverse-proxy [httpHostPattern] [listenPort] [dockerNetworkPattern] [targetContainerPort]")
 		fmt.Println(
-			"Example: docker-container-proxy .+\\.my-project.loc 80 my_project_network_[1-9]+ 80")
+			"Example: docker-container-reverse-proxy .+\\.my-project.loc 80 my_project_network_[1-9]+ 80")
 		return;
 	}
 	httpHostPattern := os.Args[1]

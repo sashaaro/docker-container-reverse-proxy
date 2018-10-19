@@ -59,7 +59,7 @@ there is not problem if they have same network or [dockerNetworkPattern] argumen
 
 Example
 
-    docker-container-proxy .+\.my-project\.loc 80 my_project_network 80
+    docker-container-reverse-proxy .+\.my-project\.loc 80 my_project_network 80
 
 Don't forgot edit your ```/etc/hosts``` accordingly
 
