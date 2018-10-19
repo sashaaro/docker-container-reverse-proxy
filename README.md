@@ -4,10 +4,23 @@ Docker container reverse proxy
 Reverse http proxy for forwarding to local running containers by [network aliases](https://docs.docker.com/v17.09/engine/userguide/networking/configure-dns).
 Useful in development environments to reach container services which working on same port.
 
-Compile `go build .`
+Why? 
+---
+Firstly for educational and personal purposes
+
+Similar projects:
+
+[jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy)
+
+[traefik](https://traefik.io)
+
+More advanced way to reach to containers without expose ports is locally setup dns server
+[coredns-dockerdiscovery](https://github.com/kevinjqiu/coredns-dockerdiscovery)
 
 How use
 ------
+Compile `go build .`
+
 
     docker-container-reverse-proxy [httpHostPattern] [listenPort] [dockerNetworkPattern] [targetContainerPort] --dashboard
 
@@ -56,11 +69,4 @@ Don't forgot edit your ```/etc/hosts``` accordingly
    
 You can type in browser `my-project.loc` and `api.my-project.loc`.
 
-```---dashboard``` flag runs dashboard on 8080 for setup tcp proxy to another ports.(in progress)
-
-Similar projects:
-[jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy)
-[traefik](https://traefik.io)
-
-More advanced way to reach to container without expose ports is locally setup dns server
-[coredns-dockerdiscovery](https://github.com/kevinjqiu/coredns-dockerdiscovery)
+```---dashboard``` flag runs dashboard on 8080 for setup tcp proxy to another ports (in progress)
