@@ -7,6 +7,8 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/client"
 	"github.com/google/tcpproxy"
+	"golang.org/x/crypto/ssh"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -20,6 +22,7 @@ type ContainerProxy struct {
 	containers []*types.Container
 	networks []*types.NetworkResource
 	selectedTargets []*SelectedContainerTarget
+	attachContainerTarget *AttachContainerTarget
 	cli *client.Client
 }
 
@@ -31,7 +34,7 @@ func (this *ContainerProxy) createClient () {
 		return;
 	}
 	this.cli = cli
-
+	this.attachContainerTarget = &AttachContainerTarget{cli:cli}
 }
 
 func (this *ContainerProxy) loadContainers () {
@@ -78,6 +81,10 @@ func (this *ContainerProxy) loadContainers () {
 				continue;
 			}
 		}
+	}
+
+	if len(this.containers) > 0 { // TODO
+		this.attachContainerTarget.Container = this.containers[0];
 	}
 }
 
@@ -178,6 +185,33 @@ func (tagret *SelectedContainerTarget) HandleConn(conn net.Conn)  {
 	conn.Close()
 }
 
+type AttachContainerTarget struct {
+	cli *client.Client
+	Container *types.Container
+}
+
+func (target *AttachContainerTarget) HandleConn(conn net.Conn)  {
+	response, _ := target.cli.ContainerAttach(context.Background(), target.Container.ID, types.ContainerAttachOptions{
+		Stream: true,
+		Stdin: true,
+		Logs: true,
+		Stderr: true,
+		Stdout: true,
+		// DetachKeys: "detach_keys",
+	});
+
+	sshConn, _, _, error := ssh.NewServerConn(conn, &ssh.ServerConfig{});
+
+	fmt.Println(error)
+	fmt.Println(sshConn.User())
+
+	io.Copy(conn, response.Reader)
+	io.Copy(response.Conn, conn)
+
+	// conn.Close()
+}
+
+
 func (this *ContainerProxy) start (port string, targetPort string, httpHostPattern string) {
 	var p tcpproxy.Proxy
 
@@ -186,6 +220,9 @@ func (this *ContainerProxy) start (port string, targetPort string, httpHostPatte
 	for _, selectedTarget := range this.selectedTargets {
 		p.AddRoute(fmt.Sprintf(":%s", selectedTarget.Port), selectedTarget)
 	}
+
+	p.AddRoute(fmt.Sprintf(":%s", "23"), this.attachContainerTarget);
+
 	fmt.Println(fmt.Sprintf("Start to listen %s port", port))
 	log.Fatal(p.Run())
 }
@@ -222,7 +259,7 @@ func main() {
 		selectedTargets: []*SelectedContainerTarget{},
 	}
 
-	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "ssh", Port: "22"})
+	// containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "ssh", Port: "22"})
 	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "postgres", Port: "5432"}) //
 	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mysql", Port: "3306"}) //
 	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mongodb", Port: "27018"})
