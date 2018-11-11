@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/docker/docker/api/types"
-	"html/template"
+	"text/template"
 	"log"
 	"net/http"
 )
@@ -64,7 +64,6 @@ func (ds *Dashboard) handleNetwork(w http.ResponseWriter, r *http.Request) {
 	data["network"] = network
 	data["containerProjects"] = containers
 	data["selectedTargets"] = ds.containerProxy.selectedTargets
-
 	t, _ := template.ParseFiles("network.html");
 	t.Execute(w, data);
 }
@@ -93,8 +92,8 @@ func (ds *Dashboard) handlePostTarget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, selectedTarget := range ds.containerProxy.selectedTargets {
-		if selectedTarget.port == port {
-			selectedTarget.container = container;
+		if selectedTarget.Port == port {
+			selectedTarget.Container = container;
 
 			w.WriteHeader(200);
 			return;

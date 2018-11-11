@@ -161,14 +161,15 @@ func withHttpHostPattern(httpHostPattern string) tcpproxy.Matcher {
 }
 
 type SelectedContainerTarget struct {
-	port string
-	container *types.Container
+	Name string
+	Port string
+	Container *types.Container
 }
 
 func (tagret *SelectedContainerTarget) HandleConn(conn net.Conn)  {
-	if tagret.container != nil {
-		if address := getHostAddress(tagret.container); address != "" {
-			address = fmt.Sprintf("%s:%s", address, tagret.port)
+	if tagret.Container != nil {
+		if address := getHostAddress(tagret.Container); address != "" {
+			address = fmt.Sprintf("%s:%s", address, tagret.Port)
 			dp := &tcpproxy.DialProxy{Addr: address}
 			dp.HandleConn(conn)
 			return;
@@ -183,7 +184,7 @@ func (this *ContainerProxy) start (port string, targetPort string, httpHostPatte
 	dContainersTarget := &ContainerByAliasesTarget{containerProxy: this, targetPort: targetPort}
 	p.AddHTTPHostMatchRoute(fmt.Sprintf(":%s", port), withHttpHostPattern(httpHostPattern), dContainersTarget)
 	for _, selectedTarget := range this.selectedTargets {
-		p.AddRoute(fmt.Sprintf(":%s", selectedTarget.port), selectedTarget)
+		p.AddRoute(fmt.Sprintf(":%s", selectedTarget.Port), selectedTarget)
 	}
 	fmt.Println(fmt.Sprintf("Start to listen %s port", port))
 	log.Fatal(p.Run())
@@ -221,7 +222,10 @@ func main() {
 		selectedTargets: []*SelectedContainerTarget{},
 	}
 
-	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{port: "22"})
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "ssh", Port: "22"})
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "postgres", Port: "5432"}) //
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mysql", Port: "3306"}) //
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mongodb", Port: "27018"})
 
 	containerProxy.createClient()
 	containerProxy.loadContainers()

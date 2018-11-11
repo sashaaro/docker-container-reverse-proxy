@@ -22,6 +22,7 @@
         <a href="/" class="ui primary button visible">Back</a>
     </div>
 </div>
+
 <table class="ui attached table">
     <thead>
     <tr>
@@ -45,22 +46,22 @@
             </td>
             <td>{{ $container.Status }}</td>
             <td>
-                {{range $selectedTarget := .selectedTargets }}
-                {{ $selectedTarget.port }}
+                {{range $i, $selectedTarget := $.selectedTargets }}
+                    <a class="tiny ui button
+{{if $selectedTarget.Container }}
+    {{if eq $selectedTarget.Container.ID $container.ID}}
+     disabled
+    {{end}}
+{{end}}"
+href="/target?container={{ $container.ID }}&port={{ $selectedTarget.Port }}">
+                    {{ $selectedTarget.Name }}:{{ $selectedTarget.Port }}
+                    </a>
                 {{end}}
-
             </td>
         </tr>
     {{ end }}
 {{ end }}
 
-{{/*                    <a class="tiny ui button
- if eq $selectedTarget.container.ID $container.ID }} disabled
-{{ end
-"
-                       href="/target?container={{ $container.ID }}&port{{ $selectedTarget.port }}">
-                        {{ $selectedTarget.port }}
-                    </a>*/}}
 
 </tbody>
 </table>
