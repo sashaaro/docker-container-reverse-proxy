@@ -285,18 +285,38 @@ func main() {
 		fmt.Printf("%v", isTty);
 		io.WriteString(s, "Hello world\n")
 
-		stream, _ := containerProxy.cli.ContainerAttach(context.Background(), containerProxy.containers[0].ID, types.ContainerAttachOptions{
+
+		idResponse, e := containerProxy.cli.ContainerExecCreate(context.Background(), containerProxy.containers[0].ID, types.ExecConfig{
+			Tty: true,
+			AttachStdout: true,
+			AttachStdin: true,
+			AttachStderr: true,
+			Cmd: []string{"sh"},
+		})
+
+		if e != nil {
+			fmt.Printf("%s", e)
+			return
+		}
+
+		stream, _ := containerProxy.cli.ContainerExecAttach(context.Background(), idResponse.ID, types.ExecStartCheck{
+			Tty: true,
+		})
+		/*stream, _ := containerProxy.cli.ContainerAttach(context.Background(), containerProxy.containers[0].ID, types.ContainerAttachOptions{
 			Stdin:  true,
 			Stdout: true,
 			Stderr: true,
 			Stream: true,
-		})
+		})*/
+		// TODO containerProxy.cli.ContainerExecResize()
 
 
 		go func() {
 			io.Copy(stream.Conn, s) // stdin
 		}()
 		io.Copy(s, stream.Reader)
+
+
 		s.Exit(1)
 	})
 
