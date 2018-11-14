@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/tcpproxy"
 	"golang.org/x/crypto/ssh"
+	sshs "github.com/gliderlabs/ssh"
 	"io"
 	"log"
 	"net"
@@ -246,10 +247,10 @@ func main() {
 			"Example: docker-container-reverse-proxy .+\\.my-project.loc 80 my_project_network_[1-9]+ 80")
 		return;
 	}
-	httpHostPattern := os.Args[1]
-	port := os.Args[2]
+	/*httpHostPattern := os.Args[1]
+	port := os.Args[2]*/
 	networkPattern := os.Args[3]
-	targetPort := os.Args[4]
+	//targetPort := os.Args[4]
 
 	params := os.Args[4:]
 
@@ -277,7 +278,29 @@ func main() {
 			dashboard.start()
 		}()
 	}
-	containerProxy.start(port, targetPort, httpHostPattern)
+	// containerProxy.start(port, targetPort, httpHostPattern)
+
+	sshs.Handle(func(s sshs.Session) {
+		_, _, isTty := s.Pty()
+		fmt.Printf("%v", isTty);
+		io.WriteString(s, "Hello world\n")
+
+		stream, _ := containerProxy.cli.ContainerAttach(context.Background(), containerProxy.containers[0].ID, types.ContainerAttachOptions{
+			Stdin:  true,
+			Stdout: true,
+			Stderr: true,
+			Stream: true,
+		})
+
+
+		go func() {
+			io.Copy(stream.Conn, s) // stdin
+		}()
+		io.Copy(s, stream.Reader)
+		s.Exit(1)
+	})
+
+	log.Fatal(sshs.ListenAndServe(":2222", nil))
 }
 
 func contains(intSlice []string, searchInt string) bool {
