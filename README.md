@@ -54,7 +54,7 @@ Compile `go build .`
     networks:
       my_project_network: ~
 
-Probably in real project some services will located in separate docker-compose.yml file, but
+Probably in real project some services will located in separate docker-compose.yml files, but
 there is not problem if they have same network or [dockerNetworkPattern] argument covers necessary networks
 
 Example

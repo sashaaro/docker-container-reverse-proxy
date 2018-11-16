@@ -6,9 +6,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/client"
+	sshs "github.com/gliderlabs/ssh"
 	"github.com/google/tcpproxy"
 	"golang.org/x/crypto/ssh"
-	sshs "github.com/gliderlabs/ssh"
 	"io"
 	"log"
 	"net"
@@ -245,12 +245,11 @@ func main() {
 		"Usage: docker-container-reverse-proxy [httpHostPattern] [listenPort] [dockerNetworkPattern] [targetContainerPort]")
 		fmt.Println(
 			"Example: docker-container-reverse-proxy .+\\.my-project.loc 80 my_project_network_[1-9]+ 80")
-		return;
 	}
-	/*httpHostPattern := os.Args[1]
-	port := os.Args[2]*/
+	httpHostPattern := os.Args[1]
+	port := os.Args[2]
 	networkPattern := os.Args[3]
-	//targetPort := os.Args[4]
+	targetPort := os.Args[4]
 
 	params := os.Args[4:]
 
@@ -261,14 +260,67 @@ func main() {
 	}
 
 	// containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "ssh", Port: "22"})
-	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "postgres", Port: "5432"}) //
-	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mysql", Port: "3306"}) //
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "postgres", Port: "5432"})
+	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mysql", Port: "3306"})
 	containerProxy.selectedTargets = append(containerProxy.selectedTargets, &SelectedContainerTarget{Name: "mongodb", Port: "27018"})
 
 	containerProxy.createClient()
 	containerProxy.loadContainers()
 	go func() {
 		containerProxy.listen()
+	}()
+
+	go func() {
+		log.Fatal(sshs.ListenAndServe(":2222", func(s sshs.Session) {
+			_, _, isTty := s.Pty();
+			if (!isTty) {
+				fmt.Println("Ssh connect as not tty. Skiped");
+				s.Exit(2); //
+				return
+			}
+			var selectedContainer *types.Container;
+			for _, c := range containerProxy.containers {
+				if contains(c.Names, fmt.Sprintf("/%s", s.User())) {
+					selectedContainer = c
+				}
+			}
+
+
+			if selectedContainer == nil {
+				fmt.Println("Selected container %s does not found", s.User());
+				s.Exit(0);
+				return;
+			}
+
+			s.Write([]byte(fmt.Sprintf("Welcome to %s container\n", selectedContainer.Names[0])))
+
+			idResponse, e := containerProxy.cli.ContainerExecCreate(context.Background(), selectedContainer.ID, types.ExecConfig{
+				Tty: true,
+				AttachStdout: true,
+				AttachStdin: true,
+				AttachStderr: true,
+				Cmd: []string{"sh"},
+				// User: "sshuser"
+			})
+
+			if e != nil {
+				fmt.Printf("%s", e)
+				return
+			}
+
+			stream, _ := containerProxy.cli.ContainerExecAttach(context.Background(), idResponse.ID, types.ExecStartCheck{
+				Tty: true,
+			});
+
+
+			go func() {
+				io.Copy(stream.Conn, s) // stdin
+			}()
+			io.Copy(s, stream.Reader)
+
+
+			s.Exit(0)
+		}))
 	}()
 
 	if contains(params, "--dashboard") {
@@ -278,49 +330,7 @@ func main() {
 			dashboard.start()
 		}()
 	}
-	// containerProxy.start(port, targetPort, httpHostPattern)
-
-	sshs.Handle(func(s sshs.Session) {
-		_, _, isTty := s.Pty()
-		fmt.Printf("%v", isTty);
-		io.WriteString(s, "Hello world\n")
-
-
-		idResponse, e := containerProxy.cli.ContainerExecCreate(context.Background(), containerProxy.containers[0].ID, types.ExecConfig{
-			Tty: true,
-			AttachStdout: true,
-			AttachStdin: true,
-			AttachStderr: true,
-			Cmd: []string{"sh"},
-		})
-
-		if e != nil {
-			fmt.Printf("%s", e)
-			return
-		}
-
-		stream, _ := containerProxy.cli.ContainerExecAttach(context.Background(), idResponse.ID, types.ExecStartCheck{
-			Tty: true,
-		})
-		/*stream, _ := containerProxy.cli.ContainerAttach(context.Background(), containerProxy.containers[0].ID, types.ContainerAttachOptions{
-			Stdin:  true,
-			Stdout: true,
-			Stderr: true,
-			Stream: true,
-		})*/
-		// TODO containerProxy.cli.ContainerExecResize()
-
-
-		go func() {
-			io.Copy(stream.Conn, s) // stdin
-		}()
-		io.Copy(s, stream.Reader)
-
-
-		s.Exit(1)
-	})
-
-	log.Fatal(sshs.ListenAndServe(":2222", nil))
+	containerProxy.start(port, targetPort, httpHostPattern)
 }
 
 func contains(intSlice []string, searchInt string) bool {
