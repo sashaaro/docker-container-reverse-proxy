@@ -70,3 +70,7 @@ Don't forgot edit your ```/etc/hosts``` accordingly
 You can type in browser `my-project.loc` and `api.my-project.loc`.
 
 ```---dashboard``` flag runs dashboard on 8080 for setup tcp proxy to another ports (in progress)
+
+Shh proxy on 2222 to container tty. Pass container name as user.
+    
+    ssh -p 2222 myproject_php-fpm_1@127.0.0.1
