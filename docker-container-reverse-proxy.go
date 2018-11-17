@@ -229,16 +229,6 @@ func (this *ContainerProxy) start (port string, targetPort string, httpHostPatte
 }
 
 
-
-func Map(vs []*types.NetworkResource, f func(*types.NetworkResource) string) []string {
-	vsm := make([]string, len(vs))
-	for i, v := range vs {
-		vsm[i] = f(v)
-	}
-	return vsm
-}
-
-
 func main() {
 	if len(os.Args) < 5 {
 		fmt.Println(
